@@ -6,48 +6,53 @@
 
 import time
 
+timeout = 10
+bytesToSend = 342
+rcvwindow = 60
 
-bytesReceived = 0
 def is_timeout_exceed(startT):
-    timeout = 10
+    global timeout
     duration = time.time()-startT
     return duration > timeout
 
+
+
+bytesReceived = 0
 def client_connect():
+    global rcvwindow
     print("CLIENT: Envoi SYN au serveur")
     startT = time.time()
     SYNACK = server_receive_syn()
+    # Connection not ACK
     while (not SYNACK) and (not is_timeout_exceed(startT)):
         SYNACK = server_receive_syn()
+    # Timeout
     if is_timeout_exceed(startT):
         print("CLIENT: Impossible de se connecter au serveur (TimeOut)")
         return False
     print("CLIENT: Connexion résussie au serveur")
-    server_request_data(60)
+    server_request_data(rcvwindow)
     return True
 
-
-
 def client_receive_data(seqNum, data):
-    global bytesReceived
+    global bytesReceived, rcvwindow
     print(f"CLIENT: Reception de la sequence {seqNum} contenant {data}o")
-    bytesReceived += data
-    time.sleep(1)
+    # If new data incoming
+    if seqNum == bytesReceived:
+        bytesReceived += data
+    time.sleep(1) # Simulate network delay
     print(f"CLIENT: {bytesReceived}o reçus")
-    return {'seqNum': seqNum+data, 'rcvwindow': 60}
+    return {'type': 'ACK', 'seqNum': bytesReceived, 'rcvwindow': rcvwindow}
 
 def client_receive_fin():
     print("CLIENT: Reception du paquet FIN. Connexion fermée.")
     return
 
-def client_send_ack(seqNum, rcvwindow, scalingFactor):
-    pass
 
 
 
-bytesToSend = 342
 def server_receive_syn():
-    time.sleep(1)
+    time.sleep(1) # Simulate netword delay
     print("SERVEUR: Envoi du paquet SYN+ACK")
     return True
 
@@ -57,21 +62,22 @@ def server_request_data(rcvwindow):
 
 def server_send_packet(seqNum, packetMaxSize):
     global bytesToSend
-    if(packetMaxSize<bytesToSend):
-        print(f"SERVEUR: Sequence {seqNum}, envoi d'un paquet de taille {packetMaxSize}o")
-        ACK = client_receive_data(seqNum, packetMaxSize)
-        while ACK['seqNum'] == seqNum:
-            ACK = client_receive_data(seqNum, packetMaxSize)
-        bytesToSend -= packetMaxSize
-        print(f"SERVEUR: Reste {bytesToSend}o à envoyer")
+    packetSize = packetMaxSize if packetMaxSize<bytesToSend else bytesToSend
+
+    print(f"SERVEUR: Sequence {seqNum}, envoi d'un paquet de taille {packetSize}o")
+    startT = time.time()
+    ACK = client_receive_data(seqNum, packetSize)
+    # If packet not received
+    while ACK['type'] != 'ACK' or ACK['seqNum'] == seqNum or is_timeout_exceed(startT):
+        startT = time.time()
+        ACK = client_receive_data(seqNum, packetSize)
+    # Packet received
+    bytesToSend -= packetSize
+    print(f"SERVEUR: Reste {bytesToSend}o à envoyer")
+    # End of transmission
+    if(bytesToSend>0):
         server_send_packet(ACK['seqNum'],ACK['rcvwindow'])
     else:
-        print(f"SERVEUR: Sequence {seqNum}, envoi d'un paquet de taille {packetMaxSize}o")
-        ACK = client_receive_data(seqNum, bytesToSend)
-        while ACK['seqNum'] == seqNum:
-            ACK = client_receive_data(seqNum, bytesToSend)
-        bytesToSend = 0
-        print(f"SERVEUR: Reste {bytesToSend}o à envoyer")
         server_send_fin()
 
 
