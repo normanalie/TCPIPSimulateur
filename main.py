@@ -11,17 +11,14 @@ class Client:
 
     def request_data(self, num_packets, rcvwindow):
         print(f"Client: Demande de {num_packets} paquets avec une fenêtre de réception de {rcvwindow}.")
-        self.server.send_data(self, num_packets, rcvwindow)
-
-    def receive_ack(self, positive):
-        if positive:
-            print("Client: Acquittement positif reçu.")
-        else:
-            print("Client: Acquittement négatif reçu.")
+        for i in range(num_packets):
+            while not self.server.send_packet(i + 1):
+                print(f"Client: Acquittement négatif reçu pour le paquet {i + 1}. Retransmission...")
+        print("Client: Tous les paquets envoyés avec succès.")
 
     def send_fin(self):
         print("Client: Envoi du paquet FIN pour fermer la connexion.")
-        self.server.receive_fin(self)
+        self.server.receive_fin()
 
 
 class Server:
@@ -34,19 +31,17 @@ class Server:
         time.sleep(1)  # Simulate network delay
         print("Serveur: Paquet SYN + ACK envoyé.")
 
-    def send_data(self, client, num_packets, rcvwindow):
-        print(f"Serveur: Envoi de {num_packets} paquets avec une fenêtre de réception de {rcvwindow}.")
+    def send_packet(self, packet_num):
+        print(f"Serveur: Envoi du paquet {packet_num}.")
         time.sleep(1)  # Simulate network delay
-        print("Serveur: Paquets envoyés.")
-        positive_ack = True  # Simulated positive acknowledgment
-        client.receive_ack(positive_ack)
+        ack = True
+        return ack  # Simulated positive acknowledgment
 
-    def receive_fin(self, client):
+    def receive_fin(self):
         print("Serveur: Réception du paquet FIN du client.")
         print("Serveur: Acquittement du paquet FIN avec un paquet en cours de fermeture.")
         time.sleep(1)  # Simulate network delay
         print("Serveur: Paquet en cours de fermeture envoyé.")
-        client.receive_ack(True)
 
 
 # Simulation
