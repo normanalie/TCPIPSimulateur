@@ -26,10 +26,6 @@ def client_connect():
     # Connection not ACK
     while (not SYNACK) and (not is_timeout_exceed(startT)):
         SYNACK = server_receive_syn()
-    # Timeout
-    if is_timeout_exceed(startT):
-        print("CLIENT: Impossible de se connecter au serveur (TimeOut)")
-        return False
     print("CLIENT: Connexion résussie au serveur")
     server_request_data(rcvwindow)
     return True
